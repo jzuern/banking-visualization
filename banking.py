@@ -21,10 +21,8 @@ def german_value_string_to_float(value_string):
     print(value_string)
     # replace all , by .
     v = value_string.replace(',','.')
-
     # remove all but last .
     v = v.replace('.','', v.count('.')-1)
-
     # remove quotation marks
     v = v.replace('"','')
 
@@ -34,17 +32,6 @@ def german_value_string_to_float(value_string):
 def operation_equal(operation1, operation2):
     return operation1 == operation2
 
-
-def einkaeufe(operations):
-
-    einkaeufe = []
-    for operation in operations:
-        locations = ["Rewe","Aldi","Lidl"]
-
-        if (operation['Verwendungszweck'] in locations):
-           einkaeufe.append(operation)
-
-    return einkaeufe
 
 def german_to_datetime(german_date_string):
 
@@ -125,7 +112,7 @@ def load_csv_folder(directory):
         file = open(csv_filename, 'r', encoding = "ISO-8859-1")
         
         # skip first 13 lines
-        for i in range(0,13):
+        for i in range(13):
             next(file) 
 
         content = file.read()
@@ -148,7 +135,7 @@ def load_csv_folder(directory):
 
                 values = subblock.split(';')
 
-                # handle Anfangsbalance and Endbalance
+                # handle starting balance and end balance
                 if ("Anfangssaldo" in subblock or "Endsaldo" in subblock):
                     date = values[0].replace('\n', '').replace('\r', '')
                     amount = values[-2]
@@ -156,7 +143,7 @@ def load_csv_folder(directory):
                     balances.append(balance)
                     continue
 
-                if(len(values) == 13): # only process valid blocks
+                if(len(values) == 13): # only process valid blocks with 13 fields in values
                     print("found valid block")
                     operation['Buchungstag'] = values[0]
                     operation['Valuta'] = values[1]
@@ -174,41 +161,33 @@ def load_csv_folder(directory):
     return operations, balances
 
 
-
-if __name__ == "__main__":
-
-    operations, balances = load_csv_folder('data')
-    print("balances", balances)
-
-
-    for v in operations:
-        if(v['Soll/Haben'] == "H"):
-            print(v['Umsatz'])
-
-    # print expenses
-    for v in operations:
-        if(v['Soll/Haben'] == "S"):
-            print(v['Umsatz'])
-
-
-
-    # get plotting data
-
-    start_balance = find_start_balance(balances)
-    print("start balance", start_balance)
-    dates, assets = create_plotting_data(operations,start_balance)
+def plot_data(dates, assets):
 
     fig, ax = plt.subplots()
 
     ax.plot_date(dates, assets, linestyle='solid', marker='.')
     ax.set_xlim(dates[0], dates[-1])
 
+    ax.set_title('Assets')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Balance[EUR]')
+
     ax.xaxis.set_major_locator(MonthLocator())
     ax.xaxis.set_minor_locator(DayLocator())
     ax.xaxis.set_major_formatter(DateFormatter('%m/%d/%Y'))
-    ax.xaxis.set_minor_formatter(DateFormatter('%d'))
+    ax.xaxis.set_minor_formatter(DateFormatter('%m/%d'))
 
     ax.fmt_xdata = DateFormatter('%Y-%m-%d %H:%M:%S')
     fig.autofmt_xdate()
 
     plt.show()
+
+
+if __name__ == "__main__":
+
+    operations, balances = load_csv_folder('data')
+    start_balance = find_start_balance(balances)
+    dates, assets = create_plotting_data(operations,start_balance)
+
+    # plotting
+    plot_data(dates, assets)

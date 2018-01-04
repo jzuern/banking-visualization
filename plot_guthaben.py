@@ -5,18 +5,19 @@ import collections
 import sys
 import itertools
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import time
 import datetime
 import numpy as np
+import glob
 
-# plottling library:
-# -- plotly: (not free)
-
-
+# example
+from matplotlib.dates import DayLocator, MonthLocator, HourLocator, DateFormatter, drange
+from numpy import arange
 
 # helper functions------------------
 
-def my_to_float(value_string):
+def german_value_string_to_float(value_string):
     print(value_string)
     # replace all , by .
     v = value_string.replace(',','.')
@@ -30,22 +31,23 @@ def my_to_float(value_string):
     return float(v)
 
 
-def vorgang_equal(vorgang1, vorgang2):
-    return vorgang1 == vorgang2
+def operation_equal(operation1, operation2):
+    return operation1 == operation2
 
 
-def einkaeufe(vorgaenge):
+def einkaeufe(operations):
 
     einkaeufe = []
-    for vorgang in vorgaenge:
+    for operation in operations:
         locations = ["Rewe","Aldi","Lidl"]
 
-        if (vorgang['Verwendungszweck'] in locations):
-           einkaeufe.append(vorgang)
+        if (operation['Verwendungszweck'] in locations):
+           einkaeufe.append(operation)
 
     return einkaeufe
 
-def german_to_unix(german_date_string):
+def german_to_datetime(german_date_string):
+
     values = german_date_string.replace("\r","")
     values = values.replace("\n","")
     values = values.replace("\"","")
@@ -56,113 +58,157 @@ def german_to_unix(german_date_string):
     year = int(values[2])
 
     dt = datetime.datetime(year=year,month=month,day=day)
-    unix_time = time.mktime(dt.timetuple())
 
-    return unix_time
-
-
-def create_plotting_data(vorgaenge):
-
-    x = []
-    y = []
+    return dt
 
 
-    for vorgang in vorgaenge:
+def create_plotting_data(operations,start_balance):
 
-        unix_time = german_to_unix(vorgang['Buchungstag'])
-        x.append(unix_time)
-        if vorgang['Soll/Haben'] == "H":
-            y.append(vorgang['Umsatz'])
+    start_balance_value = german_value_string_to_float(start_balance[1])
+    start_balance_time = german_to_datetime(start_balance[0])
+
+    unsorted_dates = []
+    unsorted_values = []
+
+    for operation in operations:
+
+        dt = german_to_datetime(operation['Buchungstag'])
+        unsorted_dates.append(dt)
+
+        if operation['Soll/Haben'] == "H":
+            unsorted_values.append(operation['Umsatz'])
         else:
-            y.append(-1.0*vorgang['Umsatz'])
+            unsorted_values.append(-1.0*operation['Umsatz'])
 
     #sort them
-    date, value = zip(*sorted(zip(x,y)))
+    dates, value = zip(*sorted(zip(unsorted_dates,unsorted_values)))
 
-    start_value = 0.0
-    accumulated = [start_value]
+    # start accumulation with start balance
+    current_assets = [start_balance_value]
+    operation_dates = [start_balance_time]
 
     #accumulate values
     for i in range(len(value)):
-        accumulated.append(value[i] + accumulated[-1])
+        current_assets.append(value[i] + current_assets[-1])
+        operation_dates.append(dates[i])
 
-    return date,accumulated[1:]
+    return operation_dates,current_assets
 
-# Get started
+def find_start_balance(balances):
 
-def load_csv(csv_filename):
-    
-    file = open(csv_filename, 'r')
-    content = file.read()
-    file.close()
+    # find earliest balance:
+    most_recent_time = datetime.datetime.now()
+    start_balance = ()
 
-    vorgaenge = []
-    saldos = []
+    for balance in balances:
 
+        balance_time = german_to_datetime(balance[0])
+        if (balance_time < most_recent_time):
+            start_balance = balance
+            most_recent_time = balance_time
+
+    return start_balance
+
+
+def load_csv_folder(directory):
+
+    operations = []
+    balances = []
+
+    # delimiter for "Haben" (credit)
     delim_H = '"H"'
+    # delimiter for "Soll" (debit)
     delim_S = '"S"'
 
+    for csv_filename in glob.glob(directory + '/*.csv'):
 
-    for block in content.split(delim_S):
-        block = block + '"S"'
-        for subblock in block.split(delim_H):
+        file = open(csv_filename, 'r', encoding = "ISO-8859-1")
+        
+        # skip first 13 lines
+        for i in range(0,13):
+            next(file) 
 
-            # initiate empty vorgang and saldo
-            vorgang = {}
-            saldo = {}
+        content = file.read()
+        file.close()
 
-            if (not ('"S"' in subblock)):
-                vorgang['Soll/Haben'] = "H"
-            else:
-                vorgang['Soll/Haben'] = "S"
+        # split based on delimiter for debit
+        for block in content.split(delim_S):
+            block = block + '"S"'
+            for subblock in block.split(delim_H):
 
-            values = subblock.split(';')
+                print("subblock  = " + subblock)
 
-            # handle Anfangssaldo and Endsaldo
-            if ("Anfangssaldo" in subblock or "Endsaldo" in subblock):
-                date = values[0].replace('\n', '').replace('\r', '')
-                amount = values[-2]
-                saldo[date] = amount
-                print("amount",amount)
-                print("date",date)
-                continue
+                # initiate empty operation and balance
+                operation = {}
 
-            if(len(values) == 13): # only process valid blocks
-                vorgang['Buchungstag'] = values[0]
-                vorgang['Valuta'] = values[1]
-                vorgang['Zahlungsempfaenger'] = values[2]
-                vorgang['Zahlungspflichtiger'] = values[3]
-                vorgang['IBAN'] = values[5]
-                vorgang['BIC'] = values[7]
-                vorgang['Verwendungszweck'] = values[8].replace('\n', ' ')
-                vorgang['Waehrung'] = values[10]
-                vorgang['Umsatz'] = my_to_float(values[11])
+                if (not ('"S"' in subblock)):
+                    operation['Soll/Haben'] = "H"
+                else:
+                    operation['Soll/Haben'] = "S"
 
-                vorgaenge.append(vorgang) 
+                values = subblock.split(';')
 
-    return vorgaenge, saldos
+                # handle Anfangsbalance and Endbalance
+                if ("Anfangssaldo" in subblock or "Endsaldo" in subblock):
+                    date = values[0].replace('\n', '').replace('\r', '')
+                    amount = values[-2]
+                    balance = (date, amount)
+                    balances.append(balance)
+                    continue
 
+                if(len(values) == 13): # only process valid blocks
+                    print("found valid block")
+                    operation['Buchungstag'] = values[0]
+                    operation['Valuta'] = values[1]
+                    operation['Zahlungsempfaenger'] = values[2]
+                    operation['Zahlungspflichtiger'] = values[3]
+                    operation['IBAN'] = values[5]
+                    operation['BIC'] = values[7]
+                    operation['Verwendungszweck'] = values[8].replace('\n', ' ')
+                    operation['Waehrung'] = values[10]
+                    operation['Umsatz'] = german_value_string_to_float(values[11])
 
-vorgaenge, saldos = load_csv('test.csv')
+                    operations.append(operation) 
+                    continue
 
-
-# Drucke Einnahmen:
-for v in vorgaenge:
-    if(v['Soll/Haben'] == "H"):
-        print(v['Umsatz'])
-
-# Drucke Ausgaben
-for v in vorgaenge:
-    if(v['Soll/Haben'] == "S"):
-        print(v['Umsatz'])
-
+    return operations, balances
 
 
-# Plotte Verlauf des Guthabens
-x,y = create_plotting_data(vorgaenge)
 
-fig = plt.figure()
-ax = fig.gca()
-plt.grid()
-plt.plot(x,y)
-plt.show()
+if __name__ == "__main__":
+
+    operations, balances = load_csv_folder('data')
+    print("balances", balances)
+
+
+    for v in operations:
+        if(v['Soll/Haben'] == "H"):
+            print(v['Umsatz'])
+
+    # print expenses
+    for v in operations:
+        if(v['Soll/Haben'] == "S"):
+            print(v['Umsatz'])
+
+
+
+    # get plotting data
+
+    start_balance = find_start_balance(balances)
+    print("start balance", start_balance)
+    dates, assets = create_plotting_data(operations,start_balance)
+
+    fig, ax = plt.subplots()
+
+    ax.plot_date(dates, assets, linestyle='solid', marker='.')
+    ax.set_xlim(dates[0], dates[-1])
+
+    ax.xaxis.set_major_locator(MonthLocator())
+    ax.xaxis.set_minor_locator(DayLocator())
+    ax.xaxis.set_major_formatter(DateFormatter('%m/%d/%Y'))
+    ax.xaxis.set_minor_formatter(DateFormatter('%d'))
+
+    ax.fmt_xdata = DateFormatter('%Y-%m-%d %H:%M:%S')
+    fig.autofmt_xdate()
+
+    plt.show()

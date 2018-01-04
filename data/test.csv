@@ -1,0 +1,23 @@
+"Volksbank Ludwigsburg eG"
+
+"Umsatzanzeige"
+
+"BLZ:";"0000000";;"Datum:";"03.01.2018"
+"Konto:";"0000000";;"Uhrzeit:";"14:16:21"
+"Abfrage von:";"John Doe";;"Kontoinhaber:";"John Doe"
+
+"Zeitraum:";"Alle Umsätze";"von:";;"bis:";
+"Betrag in EUR:";;"von:";" ";"bis:";" "
+"Sortiert nach:";"Buchungstag";"absteigend"
+
+"Buchungstag";"Valuta";"Auftraggeber/Zahlungsempfänger";"Empfänger/Zahlungspflichtiger";"Konto-Nr.";"IBAN";"BLZ";"BIC";"Vorgang/Verwendungszweck";"Kundenreferenz";"Währung";"Umsatz";" "
+
+"21.09.2017";"21.09.2017";"Max Miller";"J H";;"XX0000";;"XXXXXXXXXX";"cost";;"EUR";"10,00";"S"
+"22.09.2017";"21.09.2017";"Max Miller";"J H";;"XX0000";;"XXXXXXXXXX";"cost";;"EUR";"20,00";"H"
+"23.09.2017";"21.09.2017";"Max Miller";"J H";;"XX0000";;"XXXXXXXXXX";"cost";;"EUR";"84,00";"S"
+"23.09.2017";"21.09.2017";"Max Miller";"J H";;"XX0000";;"XXXXXXXXXX";"cost";;"EUR";"14,00";"S"
+"24.09.2017";"21.09.2017";"Max Miller";"J H";;"XX0000";;"XXXXXXXXXX";"cost";;"EUR";"33,00";"H"
+"25.09.2017";"21.09.2017";"Max Miller";"J H";;"XX0000";;"XXXXXXXXXX";"cost";;"EUR";"50,00";"H"
+
+"20.09.2017";;;;;;;;;"Anfangssaldo";"EUR";"100,00";"H"
+"26.09.2017";;;;;;;;;"Endsaldo";"EUR";"90,00";"H"
